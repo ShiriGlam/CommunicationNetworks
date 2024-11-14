@@ -37,7 +37,7 @@ def main():
     
     try:
         while True:
-            data, addr = sock.recvfrom(512)
+            data, addr = sock.recvfrom(512)  
             domain = data.decode().strip()
             print(f"Received query for domain: {domain} from {addr}")
             

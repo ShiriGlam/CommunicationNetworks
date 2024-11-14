@@ -20,11 +20,11 @@ def main():
         response, _ = sock.recvfrom(1024)
         response = response.decode()
         if response.startswith("A,"):
-            print(response.split(',')[1])  # רק ה-IP
+            print(response.split(',')[1])  
         elif response.startswith("NS,"):
             print("Redirect to NS server at", response.split(',')[1])
         else:
-            print(response)  # ידפיס 'non-existent domain' או תשובה אחרת
+            print(response)  
 
     sock.close()
 
