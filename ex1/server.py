@@ -1,20 +1,24 @@
 import socket
 import sys
 
-def load_zone_file(filename):
+def load_zone(filename):
+    # map for domains and records-
     zone = {}
     with open(filename, 'r') as file:
         for line in file:
             if line.strip():
                 parts = line.strip().split(',')
                 domain = parts[0]
+                # take the ip and the type(A or NS)
                 record = {'address': parts[1], 'type': parts[2]}
                 zone[domain] = record
     return zone
 
 def find_record(zone, domain):
+    # if the domain is in the zone file, return the addres.
     if domain in zone:
         return zone[domain]
+    # if this domain isnt in the zone file, check if the NS is "substring" of the domain 
     else:
         for d, rec in zone.items():
             if rec['type'] == 'NS' and domain.endswith(d):
@@ -28,18 +32,17 @@ def main():
     
     port = int(sys.argv[1])
     zonefile = sys.argv[2]
-    zone = load_zone_file(zonefile)
+    zone = load_zone(zonefile)
     
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind(('', port))
     
-    print(f"DNS server listening on port {port}")
     
     try:
         while True:
+            # get the domain from the resolver:
             data, addr = sock.recvfrom(512)  
             domain = data.decode().strip()
-            print(f"Received query for domain: {domain} from {addr}")
             
             record = find_record(zone, domain)
             if record:
@@ -47,10 +50,9 @@ def main():
             else:
                 response = "non-existent domain"
             
-            print(f"Sending response: {response}")
             sock.sendto(response.encode(), addr)
     except KeyboardInterrupt:
-        print("Shutting down server")
+        print("")
     finally:
         sock.close()
 
