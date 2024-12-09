@@ -35,64 +35,68 @@ def run_server(port):
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_socket.bind(("", port))
     server_socket.listen(5)
-    print(f"Server is running on port {port}")
+
 
     while True:
         client_socket, client_address = server_socket.accept()
         client_socket.settimeout(TIMEOUT)
-        print(f"Connection from {client_address}")
         handle_client(client_socket)
 def handle_client(client_socket):
     try:
-        request = b""
-        while True:
-            chunk = client_socket.recv(BUFFER_SIZE)
-            if not chunk:  # empty request
-                break
-            request += chunk
-            if b"\r\n\r\n" in request:
-                break
+        while True:  
+            request = b""
+            while True:
+                chunk = client_socket.recv(BUFFER_SIZE)
+                if not chunk:  # empty request
+                    client_socket.close()
+                    return
+                request += chunk
+                if b"\r\n\r\n" in request:
+                    break
 
-        print(request.decode())  # print the request to the screen
+            print(request.decode())  # print the request
 
-        #decode the request
-        request_lines = request.decode().split("\r\n")
-        first_line = request_lines[0]
-        #create the headers
-        headers = {line.split(": ")[0]: line.split(": ")[1] for line in request_lines[1:] if ": " in line}
-        connection = headers.get("Connection", "close")
+            request_lines = request.decode().split("\r\n")
+            first_line = request_lines[0]
+            headers = {line.split(": ")[0]: line.split(": ")[1] for line in request_lines[1:] if ": " in line}
+            connection = headers.get("Connection", "close")
 
-        if first_line.startswith("GET"):
-            path = first_line.split(" ")[1]
-            if path == "/":
-                path = DEFAULT_FILE
+			# procces of the request
+            if first_line.startswith("GET"):
+                path = first_line.split(" ")[1]
+                if path == "/":
+                    path = DEFAULT_FILE
+                else:
+                    path = path.lstrip("/")
+
+                file_path = os.path.join(FILES_DIR, path)
+
+                if os.path.exists(file_path):
+                    content = read_file(file_path)
+                    response = create_response("200 OK", connection, content)
+                elif path == "redirect":
+                    response = create_response("301 Moved Permanently", "close", location="/result.html")
+                else:
+                    response = create_response("404 Not Found", "close")
             else:
-                path = path.lstrip("/")
-            
-            file_path = os.path.join(FILES_DIR, path)
-            print(f"Checking file path: {file_path}") 
+                response = create_response("400 Bad Request", "close")
 
-            if os.path.exists(file_path):
-                content = read_file(file_path)
-                response = create_response("200 OK", connection, content)
-            elif path == "redirect":
-                response = create_response("301 Moved Permanently", "close", location="/result.html")
-            else:
-                response = create_response("404 Not Found", "close")
-        else:
-            response = create_response("400 Bad Request", "close")
+			# send the request 
+            client_socket.sendall(response)
 
-        client_socket.sendall(response)
-
-        if connection.lower() == "close":
-            client_socket.close()
-
+            # close the socket if the connection is "close"
+            if connection.lower() == "close":
+                client_socket.close()
+                return  # handle another client
+            # if the connection is "keep-alive" we return in the loop for more iter
+    #if we have timeout- close the socket
     except socket.timeout:
         print("Connection timed out.")
         client_socket.close()
     except Exception as e:
         print(f"Error: {e}")
         client_socket.close()
+
 if __name__ == "__main__":
     import sys
     if len(sys.argv) != 2:
